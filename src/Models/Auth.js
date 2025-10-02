@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const authSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   otp: { type: String },
-  otpExpiry: { type: Number },
+  otpExpiry: { type: Date },
   refreshToken: { type: String },
 }, { timestamps: true });
 

@@ -6,6 +6,7 @@ const Auth = require("../models/Auth");
 const { generateTokens } = require("../utils/jwt");
 require("dotenv").config();
 
+
 // ---------------- SEND OTP ----------------
 router.post("/send_otp", async (req, res) => {
   try {
