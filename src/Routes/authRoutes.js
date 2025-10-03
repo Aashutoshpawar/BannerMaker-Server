@@ -2,7 +2,7 @@ const express = require("express");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const router = express.Router();
-const Auth = require("../models/Auth");
+const Auth = require("../Models/Auth");
 const { generateTokens } = require("../utils/jwt");
 require("dotenv").config();
 
