@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const cloudinary = require('../Config/cloudinaryConfig');
-const Template = require('../Models/templatesSchema');
+const Sticker = require('../Models/stickersSchema');  // ✅ Correct Model
+const mongoose = require('mongoose');
 
 // ================== HELPERS ==================
 
-// Fetch templates from Cloudinary folder (recursively)
-const fetchFolderTemplates = async (folderPath, maxResults = 500) => {
+// Fetch resources from Cloudinary
+const fetchFolderStickers = async (folderPath, maxResults = 500) => {
   let allResources = [];
   let nextCursor = null;
 
@@ -43,112 +44,101 @@ const fetchFolderTemplates = async (folderPath, maxResults = 500) => {
   return allResources;
 };
 
-// Bulk save templates to MongoDB
-const saveTemplatesToDB = async (templates) => {
-  if (!templates.length) return;
+// Save fetched stickers to DB
+const saveStickersToDB = async (stickers, rootFolder) => {
+  if (!stickers.length) return;
 
-  const bulkOps = templates.map(temp => ({
+  const bulkOps = stickers.map(sticker => ({
     updateOne: {
-      filter: { name: temp.id },
+      filter: { name: sticker.id },
       update: {
         $set: {
-          name: temp.id,
-          category: temp.folder.replace('Templates/', ''),
-          imageUrl: temp.url,
+          name: sticker.id,
+          category: sticker.folder.replace(`${rootFolder}/`, ''),
+          imageUrl: sticker.url,
           tags: [],
-          width: temp.width,
-          height: temp.height,
-          format: temp.format
+          width: sticker.width,
+          height: sticker.height,
+          format: sticker.format,
         }
       },
-      upsert: true
+      upsert: true,
     }
   }));
 
-  await Template.bulkWrite(bulkOps);
+  await Sticker.bulkWrite(bulkOps);
 };
 
 // ================== ROUTES ==================
 
-// 📋 Sync Cloudinary templates to DB and return categories
+// 📂 Get Sticker Categories
 router.get('/categories', async (req, res) => {
   try {
-    const rootFolder = "Templates";
+    const rootFolder = "Stickers";
+    const allStickers = await fetchFolderStickers(`${rootFolder}/`, 500);
+    await saveStickersToDB(allStickers, rootFolder);
 
-    // Fetch templates from Cloudinary
-    const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
+    const stickersFromDB = await Sticker.find({}, 'name category imageUrl');
 
-    // Save to MongoDB in bulk
-    await saveTemplatesToDB(allTemplates);
-
-    // Fetch only required fields grouped by category
-    const templatesFromDB = await Template.find({}, 'name category imageUrl');
-
-    const categories = templatesFromDB.reduce((acc, temp) => {
-      if (!acc[temp.category]) acc[temp.category] = {
-        name: temp.category,
-        urlName: temp.category.replace(/ /g, '_'),
-        templates: []
-      };
-      acc[temp.category].templates.push(temp);
+    const categories = stickersFromDB.reduce((acc, s) => {
+      if (!acc[s.category]) {
+        acc[s.category] = {
+          name: s.category,
+          urlName: s.category.replace(/ /g, '_'),
+          stickers: []
+        };
+      }
+      acc[s.category].stickers.push(s);
       return acc;
     }, {});
 
     res.status(200).json({
       success: true,
       totalCategories: Object.keys(categories).length,
-      totalImages: templatesFromDB.length,
+      totalImages: stickersFromDB.length,
       categories
     });
 
   } catch (error) {
-    console.error('❌ Error syncing/fetching categories:', error);
+    console.error('❌ Error fetching sticker categories:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 📁 Get templates by category
-// 📂 Get Templates by Category (from payload)
+// 📂 Get Stickers by Category
+// 📂 Get Stickers by Category (from payload)
 router.post('/category', async (req, res) => {
   try {
-    const { categoryName } = req.body; // ✅ read from payload
+    const { categoryName } = req.body;   // ✅ Now we read from payload
 
     if (!categoryName) {
-      return res.status(400).json({
-        success: false,
-        message: "categoryName is required in payload"
-      });
+      return res.status(400).json({ success: false, message: "categoryName is required in payload" });
     }
 
     const category = decodeURIComponent(categoryName).replace(/_/g, ' ');
-
-    const templates = await Template.find(
+    const stickers = await Sticker.find(
       { category },
       'name imageUrl width height format'
     );
 
-    if (!templates.length) {
-      return res.status(404).json({
-        success: false,
-        message: `No templates found in category "${category}"`,
-        category
-      });
+    if (!stickers.length) {
+      return res.status(404).json({ success: false, message: `No stickers found in "${category}"` });
     }
 
     res.status(200).json({
       success: true,
       category,
-      count: templates.length,
-      templates
+      count: stickers.length,
+      stickers,
     });
 
   } catch (error) {
-    console.error('❌ Error fetching template category:', error);
+    console.error('❌ Error fetching sticker category:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 🔍 Search/filter templates in DB
+// 🔍 Search Stickers (by filters)
 router.get('/search', async (req, res) => {
   try {
     const { category, format, minWidth, minHeight, tags } = req.query;
@@ -160,32 +150,22 @@ router.get('/search', async (req, res) => {
     if (minHeight) query.height = { ...query.height, $gte: parseInt(minHeight) };
     if (tags) query.tags = { $all: tags.split(',').map(t => t.trim()) };
 
-    const results = await Template.find(query, 'name category imageUrl width height format');
-
-    res.status(200).json({
-      success: true,
-      filters: { category, format, minWidth, minHeight, tags },
-      count: results.length,
-      templates: results
-    });
+    const results = await Sticker.find(query, 'name category imageUrl width height format');
+    res.status(200).json({ success: true, count: results.length, stickers: results });
 
   } catch (error) {
-    console.error('❌ Search error:', error);
+    console.error('❌ Sticker search error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 📄 List all templates flat
+// 📂 Get All Stickers
 router.get('/all', async (req, res) => {
   try {
-    const allTemplates = await Template.find({}, 'name category imageUrl width height format');
-    res.status(200).json({
-      success: true,
-      count: allTemplates.length,
-      templates: allTemplates
-    });
+    const allStickers = await Sticker.find({}, 'name category imageUrl width height format');
+    res.status(200).json({ success: true, count: allStickers.length, stickers: allStickers });
   } catch (error) {
-    console.error('❌ Error fetching all templates:', error);
+    console.error('❌ Error fetching all stickers:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });

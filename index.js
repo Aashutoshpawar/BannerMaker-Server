@@ -6,9 +6,10 @@ const cors = require('cors');
 const authRoutes = require("./src/Routes/authRoutes");
 const creationRoutes = require("./src/Routes/creationRoutes");
 const templateRoutes = require('./src/Routes/templateRoutes');
+const stickersRoutes = require('./src/Routes/stickerRoutes');
 require('dotenv').config();
-
 const app = express();
+
 
 // ✅ Connect DB
 connectDB();
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/creations", creationRoutes);
 app.use('/api/templates', templateRoutes);
+app.use('/api/stickers', stickersRoutes);
 
 
 // ✅ Root route
