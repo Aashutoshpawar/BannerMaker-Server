@@ -1,104 +1,81 @@
-// routes/templates.js
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const cloudinary = require("../Config/cloudinaryConfig");
-const Template = require("../Models/templatesSchema");
-require("dotenv").config(); // Load .env
+const cloudinary = require('../Config/cloudinaryConfig');
+const Template = require('../Models/templatesSchema');
 
 // ================== HELPERS ==================
 
-// Fetch templates from Cloudinary (with pagination)
+// Fetch resources from Cloudinary
 const fetchFolderTemplates = async (folderPath, maxResults = 500) => {
   let allResources = [];
   let nextCursor = null;
 
-  // Check ENV vars
-  if (
-    !process.env.CLOUDINARY_CLOUD_NAME ||
-    !process.env.CLOUDINARY_API_KEY ||
-    !process.env.CLOUDINARY_API_SECRET
-  ) {
-    console.warn(
-      "⚠️ Cloudinary credentials missing in .env. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET."
-    );
-    return [];
-  }
-
-  try {
-    do {
+  do {
+    try {
       const result = await cloudinary.api.resources({
-        type: "upload",
+        type: 'upload',
         prefix: folderPath,
         max_results: maxResults,
         next_cursor: nextCursor,
-        resource_type: "image",
+        resource_type: 'image',
       });
 
       if (result.resources?.length) {
-        allResources.push(
-          ...result.resources.map((item) => ({
-            id: item.public_id,
-            url: item.secure_url,
-            width: item.width,
-            height: item.height,
-            format: item.format,
-            folder: item.public_id.includes("/")
-              ? item.public_id.substring(0, item.public_id.lastIndexOf("/"))
-              : "root",
-          }))
-        );
+        allResources.push(...result.resources.map(item => ({
+          id: item.public_id,
+          url: item.secure_url,
+          width: item.width,
+          height: item.height,
+          format: item.format,
+          folder: item.public_id.includes('/')
+            ? item.public_id.substring(0, item.public_id.lastIndexOf('/'))
+            : 'root'
+        })));
       }
 
       nextCursor = result.next_cursor || null;
-    } while (nextCursor);
+    } catch (err) {
+      console.warn(`⚠️ Error fetching resources from ${folderPath}: ${err.message}`);
+      nextCursor = null;
+    }
+  } while (nextCursor);
 
-    console.log(
-      `✅ Fetched ${allResources.length} templates from Cloudinary folder: ${folderPath}`
-    );
-    return allResources;
-  } catch (err) {
-    console.error("❌ Cloudinary fetch error:", err.message || err);
-    return [];
-  }
+  return allResources;
 };
 
-// Save templates to MongoDB in bulk
-const saveTemplatesToDB = async (templates) => {
+// Save fetched templates to DB
+const saveTemplatesToDB = async (templates, rootFolder) => {
   if (!templates.length) return;
 
-  try {
-    const bulkOps = templates.map((temp) => ({
-      updateOne: {
-        filter: { name: temp.id },
-        update: {
-          $set: {
-            name: temp.id,
-            category: temp.folder.replace(/^Templates\//i, ""), // remove "Templates/"
-            imageUrl: temp.url,
-            tags: [],
-            width: temp.width,
-            height: temp.height,
-            format: temp.format,
-          },
-        },
-        upsert: true,
+  const bulkOps = templates.map(template => ({
+    updateOne: {
+      filter: { name: template.id },
+      update: {
+        $set: {
+          name: template.id,
+          category: template.folder.replace(`${rootFolder}/`, ''),
+          imageUrl: template.url,
+          tags: [],
+          width: template.width,
+          height: template.height,
+          format: template.format,
+        }
       },
-    }));
+      upsert: true,
+    }
+  }));
 
-    await Template.bulkWrite(bulkOps);
-    console.log(`✅ Synced ${templates.length} templates to MongoDB`);
-  } catch (err) {
-    console.error("❌ Error saving templates to DB:", err.message);
-  }
+  await Template.bulkWrite(bulkOps);
 };
 
 // ================== ROUTES ==================
 
-// 📋 Sync Cloudinary → MongoDB → return categories
-// 📂 Get Template Categories
+<<<<<<< HEAD
+// 📋 Sync Cloudinary → MongoDB → return categories & Get Template Categories
 router.get('/categories', async (req, res) => {
   try {
     const rootFolder = "Templates";
+<<<<<<< HEAD
     console.log('🔍 Starting to fetch templates...');
     
     const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
@@ -122,6 +99,13 @@ router.get('/categories', async (req, res) => {
     const templatesFromDB = await Template.find({}, 'name category imageUrl');
     console.log(`📚 Found ${templatesFromDB.length} templates in DB`);
 
+=======
+    const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
+    await saveTemplatesToDB(allTemplates, rootFolder);
+
+    const templatesFromDB = await Template.find({}, 'name category imageUrl');
+
+>>>>>>> ba98bb2aea0146d03407b614d21a2e4975bd2705
     const categories = templatesFromDB.reduce((acc, t) => {
       if (!acc[t.category]) {
         acc[t.category] = {
@@ -144,36 +128,37 @@ router.get('/categories', async (req, res) => {
     });
 
   } catch (error) {
+<<<<<<< HEAD
     console.error('❌ Error in /categories:', error);
+=======
+    console.error('❌ Error fetching template categories:', error);
+>>>>>>> ba98bb2aea0146d03407b614d21a2e4975bd2705
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+<<<<<<< HEAD
 //Get templates by category (POST)
 router.post("/category", async (req, res) => {
+=======
+// 📂 Get Templates by Category (from payload)
+router.post('/category', async (req, res) => {
+>>>>>>> ba98bb2aea0146d03407b614d21a2e4975bd2705
   try {
     const { categoryName } = req.body;
 
     if (!categoryName) {
-      return res.status(400).json({
-        success: false,
-        message: "categoryName is required in payload",
-      });
+      return res.status(400).json({ success: false, message: "categoryName is required in payload" });
     }
 
-    const category = decodeURIComponent(categoryName).replace(/_/g, " ");
-
+    const category = decodeURIComponent(categoryName).replace(/_/g, ' ');
     const templates = await Template.find(
       { category },
-      "name imageUrl width height format"
+      'name imageUrl width height format'
     );
 
     if (!templates.length) {
-      return res.status(404).json({
-        success: false,
-        message: `No templates found in category "${category}"`,
-        category,
-      });
+      return res.status(404).json({ success: false, message: `No templates found in "${category}"` });
     }
 
     res.status(200).json({
@@ -182,14 +167,15 @@ router.post("/category", async (req, res) => {
       count: templates.length,
       templates,
     });
+
   } catch (error) {
-    console.error("❌ Error in /category:", error);
+    console.error('❌ Error fetching template category:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 🔍 Search templates (GET /search?category=...&tags=...)
-router.get("/search", async (req, res) => {
+// 🔍 Search Templates (by filters)
+router.get('/search', async (req, res) => {
   try {
     const { category, format, minWidth, minHeight, tags } = req.query;
     const query = {};
@@ -198,39 +184,24 @@ router.get("/search", async (req, res) => {
     if (format) query.format = format.toLowerCase();
     if (minWidth) query.width = { $gte: parseInt(minWidth) };
     if (minHeight) query.height = { ...query.height, $gte: parseInt(minHeight) };
-    if (tags) query.tags = { $all: tags.split(",").map((t) => t.trim()) };
+    if (tags) query.tags = { $all: tags.split(',').map(t => t.trim()) };
 
-    const results = await Template.find(
-      query,
-      "name category imageUrl width height format"
-    );
+    const results = await Template.find(query, 'name category imageUrl width height format');
+    res.status(200).json({ success: true, count: results.length, templates: results });
 
-    res.status(200).json({
-      success: true,
-      filters: { category, format, minWidth, minHeight, tags },
-      count: results.length,
-      templates: results,
-    });
   } catch (error) {
-    console.error("❌ Search error:", error);
+    console.error('❌ Template search error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 📄 List all templates
-router.get("/all", async (req, res) => {
+// 📂 Get All Templates
+router.get('/all', async (req, res) => {
   try {
-    const allTemplates = await Template.find(
-      {},
-      "name category imageUrl width height format"
-    );
-    res.status(200).json({
-      success: true,
-      count: allTemplates.length,
-      templates: allTemplates,
-    });
+    const allTemplates = await Template.find({}, 'name category imageUrl width height format');
+    res.status(200).json({ success: true, count: allTemplates.length, templates: allTemplates });
   } catch (error) {
-    console.error("❌ Error in /all:", error);
+    console.error('❌ Error fetching all templates:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
