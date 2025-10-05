@@ -95,56 +95,61 @@ const saveTemplatesToDB = async (templates) => {
 // ================== ROUTES ==================
 
 // 📋 Sync Cloudinary → MongoDB → return categories
-router.get("/categories", async (req, res) => {
+// 📂 Get Template Categories
+router.get('/categories', async (req, res) => {
   try {
-    const rootFolder = "Templates"; // Case-sensitive on Linux VPS
+    const rootFolder = "Templates";
+    console.log('🔍 Starting to fetch templates...');
+    
     const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
-
+    console.log(`📊 Fetched ${allTemplates.length} templates from Cloudinary`);
+    
     if (!allTemplates.length) {
+      console.log('❌ No templates fetched - returning early');
       return res.status(200).json({
         success: true,
         totalCategories: 0,
         totalImages: 0,
         categories: {},
-        message:
-          "No templates fetched from Cloudinary. Check credentials or folder name.",
+        message: "No templates fetched from Cloudinary. Check credentials or folder name.",
       });
     }
+    
+    console.log('💾 Saving templates to DB...');
+    await saveTemplatesToDB(allTemplates, rootFolder);
+    console.log('✅ Templates saved to DB');
 
-    // Save in DB
-    await saveTemplatesToDB(allTemplates);
+    const templatesFromDB = await Template.find({}, 'name category imageUrl');
+    console.log(`📚 Found ${templatesFromDB.length} templates in DB`);
 
-    // Fetch from DB
-    const templatesFromDB = await Template.find({}, "name category imageUrl");
-
-    // Group by category
-    const categories = templatesFromDB.reduce((acc, temp) => {
-      const categoryName = temp.category || "root";
-      if (!acc[categoryName]) {
-        acc[categoryName] = {
-          name: categoryName,
-          urlName: categoryName.replace(/ /g, "_"),
-          templates: [],
+    const categories = templatesFromDB.reduce((acc, t) => {
+      if (!acc[t.category]) {
+        acc[t.category] = {
+          name: t.category,
+          urlName: t.category.replace(/ /g, '_'),
+          templates: []
         };
       }
-      acc[categoryName].templates.push(temp);
+      acc[t.category].templates.push(t);
       return acc;
     }, {});
+
+    console.log(`✅ Returning ${Object.keys(categories).length} categories`);
 
     res.status(200).json({
       success: true,
       totalCategories: Object.keys(categories).length,
       totalImages: templatesFromDB.length,
-      categories,
-      message: "Templates fetched successfully",
+      categories
     });
+
   } catch (error) {
-    console.error("❌ Error in /categories:", error);
+    console.error('❌ Error in /categories:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 📁 Get templates by category (POST)
+//Get templates by category (POST)
 router.post("/category", async (req, res) => {
   try {
     const { categoryName } = req.body;

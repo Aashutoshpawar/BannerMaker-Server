@@ -1,3 +1,4 @@
+require('dotenv').config();  // ← Move this to the VERY TOP
 const express = require("express");
 const connectDB = require("./src/Config/db");  // ✅ DB connection
 const cors = require('cors');
@@ -7,7 +8,6 @@ const authRoutes = require("./src/Routes/authRoutes");
 const creationRoutes = require("./src/Routes/creationRoutes");
 const templateRoutes = require('./src/Routes/templateRoutes');
 const stickersRoutes = require('./src/Routes/stickerRoutes');
-require('dotenv').config();
 const app = express();
 
 
