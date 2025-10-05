@@ -39,6 +39,21 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.post('/user', async (req, res) => {
+  const { userId } = req.body;
+
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ error: 'Invalid or missing userId' });
+  }
+
+  try {
+    const creations = await Creation.find({ userId });
+    res.status(200).json(creations);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // UPDATE a Creation by ID
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
