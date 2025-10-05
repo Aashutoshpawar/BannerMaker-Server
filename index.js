@@ -31,6 +31,11 @@ app.get("/", (req, res) => {
 });
 
 // ✅ Start server
+console.log('Cloudinary Config:', {
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME ? 'SET' : 'NOT SET',
+  api_key: process.env.CLOUDINARY_API_KEY ? 'SET' : 'NOT SET',
+  api_secret: process.env.CLOUDINARY_API_SECRET ? 'SET' : 'NOT SET'
+});
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 // ✅ Wrap with serverless-http
