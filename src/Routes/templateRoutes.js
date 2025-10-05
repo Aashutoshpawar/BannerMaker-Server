@@ -74,6 +74,28 @@ const saveTemplatesToDB = async (templates, rootFolder) => {
 router.get('/categories', async (req, res) => {
   try {
     const rootFolder = "Templates";
+    console.log('🔍 Starting to fetch templates...');
+    
+    const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
+    console.log(`📊 Fetched ${allTemplates.length} templates from Cloudinary`);
+    
+    if (!allTemplates.length) {
+      console.log('❌ No templates fetched - returning early');
+      return res.status(200).json({
+        success: true,
+        totalCategories: 0,
+        totalImages: 0,
+        categories: {},
+        message: "No templates fetched from Cloudinary. Check credentials or folder name.",
+      });
+    }
+    
+    console.log('💾 Saving templates to DB...');
+    await saveTemplatesToDB(allTemplates, rootFolder);
+    console.log('✅ Templates saved to DB');
+
+    const templatesFromDB = await Template.find({}, 'name category imageUrl');
+    console.log(`📚 Found ${templatesFromDB.length} templates in DB`);
     const allTemplates = await fetchFolderTemplates(`${rootFolder}/`, 500);
     await saveTemplatesToDB(allTemplates, rootFolder);
 
@@ -91,6 +113,8 @@ router.get('/categories', async (req, res) => {
       return acc;
     }, {});
 
+    console.log(`✅ Returning ${Object.keys(categories).length} categories`);
+
     res.status(200).json({
       success: true,
       totalCategories: Object.keys(categories).length,
@@ -99,11 +123,14 @@ router.get('/categories', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Error in /categories:', error);
     console.error('❌ Error fetching template categories:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
+//Get templates by category (POST)
+router.post("/category", async (req, res) => {
 // 📂 Get Templates by Category (from payload)
 router.post('/category', async (req, res) => {
   try {
