@@ -72,15 +72,14 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE a Creation by ID
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
-  if (!mongoose.Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ error: 'Invalid ID' });
+router.delete('/', async (req, res) => {
+  const { _id } = req.body;
+  if (!_id || !mongoose.Types.ObjectId.isValid(_id)) {
+    return res.status(400).json({ error: 'Invalid or missing _id' });
   }
 
   try {
-    const deletedCreation = await Creation.findByIdAndDelete(id);
+    const deletedCreation = await Creation.findByIdAndDelete(_id);
     if (!deletedCreation) return res.status(404).json({ error: 'Not found' });
     res.status(200).json({ message: 'Deleted successfully' });
   } catch (err) {
