@@ -187,4 +187,27 @@ router.get('/all', async (req, res) => {
   }
 });
 
+// 🗑️ Delete All Templates
+router.delete('/all', async (req, res) => {
+  try {
+    console.log('⚠️ Deleting all templates from database...');
+    const result = await Template.deleteMany({});
+    console.log(`✅ Deleted ${result.deletedCount} templates`);
+
+    res.status(200).json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: 'All templates deleted successfully.',
+    });
+  } catch (error) {
+    console.error('❌ Error deleting templates:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete templates.',
+      error: error.message,
+    });
+  }
+});
+
+
 module.exports = router;
